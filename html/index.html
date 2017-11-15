@@ -1,0 +1,246 @@
+<html>
+<head>
+<title>Face Detection Project</title>
+<link href='http://fonts.googleapis.com/css?family=Nunito:300|Crimson+Text|Droid+Sans+Mono' rel='stylesheet' type='text/css'>
+<link rel="stylesheet" title="Default" href="styles/github.css">
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
+
+<link rel="stylesheet" href="highlighting/styles/default.css">
+<script src="highlighting/highlight.pack.js"></script>
+
+<style type="text/css">
+body {
+	margin: 0px;
+	width: 100%;
+	font-family: 'Crimson Text', serif;
+	font-size: 20px;
+	background: #fcfcfc;
+}
+h1 {
+	font-family: 'Nunito', sans-serif;
+	font-weight: normal;
+	font-size: 28px;
+	margin: 25px 0px 0px 0px;
+	text-transform: lowercase;
+
+}
+
+h2 {
+	font-family: 'Nunito', sans-serif;
+	font-weight: normal;
+	font-size: 32px;
+	margin: 15px 0px 35px 0px;
+	color: #333;
+	word-spacing: 3px;
+}
+
+h3 {
+	font-family: 'Nunito', sans-serif;
+	font-weight: normal;
+	font-size: 26px;
+	margin: 10px 0px 10px 0px;
+	color: #333;
+	word-spacing: 2px;
+}
+h4 {
+	font-family: 'Nunito', sans-serif;
+	font-weight: normal;
+	font-size: 22px;
+	margin: 10px 0px 10px 0px;
+	color: #333;
+	word-spacing: 2px;
+}
+
+h5 {
+	font-family: 'Nunito', sans-serif;
+	font-weight: normal;
+	font-size: 18px;
+	margin: 10px 0px 10px 0px;
+	color: #111;
+	word-spacing: 2px;
+}
+
+p, li {
+	color: #444;
+}
+
+a {
+	color: #DE3737;
+}
+
+.container {
+	margin: 0px auto 0px auto;
+	width: 1160px;
+}
+
+#header {
+	background: #333;
+	width: 100%;
+}
+
+#headersub {
+	color: #ccc;
+	width: 960px;
+	margin: 0px auto 0px auto;
+	padding: 20px 0px 20px 0px;
+}
+
+.chart {
+	width: 480px;
+}
+.lol {
+	font-size: 16px;
+	color: #888;
+	font-style: italic;
+}
+.sep {
+	height: 1px;
+	width: 100%;
+	background: #999;
+	margin: 20px 0px 20px 0px;
+}
+.footer{
+	font-size: 16px;
+}
+.latex {
+	width: 100%;
+}
+
+.latex img {
+	display: block;
+	margin: 0px auto 0px auto;
+}
+
+pre {
+	font-family: 'Droid Sans Mono';
+	font-size: 14px;
+}
+
+table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+table td img {
+  text-align: center;
+  vertical-align: middle;
+}
+
+#contents a {
+}
+</style>
+<script type="text/javascript">
+    hljs.initHighlightingOnLoad();
+</script>
+</head>
+<body>
+<div id="header" >
+<div id="headersub">
+<h1>Aayush Kumar </h1>
+</div>
+</div>
+<div class="container">
+
+<h2> Project 5 / Face Detection with a Sliding Window</h2>
+
+<p>
+	In this project, our objective was to train a classifier to detect faces using a sliding window approach and leveraging histograms of orienteed gradients (HOG).
+	In order to detect faces at multiple scales of an image, we have adapted our sliding windows to operate on multiple scales of the image.
+
+</p>
+
+<div style="clear:both">
+<h3>Get Positive Features</h3>
+
+<p>
+	For getting positive features, I decided to very simply read in images and accumulate a positive dataset of hog descriptions of each of the pre-cropped images.
+	However, processing the negative images proved to be more interesting, as I sampled descriptions at varying scales of the provided images.
+	I used a scaling factor of 0.7 as per the suggestion of Professor Hays. After applying the appropriate labels to my dataset,
+	I trained my linear SVM with a lambda of 0.0001. After running my detector several times, I was consistently returning more false positives than I would have liked-
+	thus I went ahead and implemented hard negative mining using the provided test data set.
+</p>
+
+<h2>Random window approach for Negative Features</h2>
+The javascript in the <code>highlighting</code> folder is configured to do syntax highlighting in code blocks such as the one below.<p>
+
+<pre><code>
+%My Random Window approach for scanning through neg features
+		while (imHeight >= tempSize && imWidth >= tempSize)
+            for fS = 1 : ceil(featuresSampled * currScale .^ 2)
+                % top left coordinates of feature
+                r = ceil(rand * (imHeight - tempSize) + 1);
+                c = ceil(rand * (imWidth - tempSize) + 1);
+                imWindow = img(r : r + tempSize - 1, c : c + tempSize - 1);
+                feature = reshape(vl_hog(imWindow, cellSize), 1, []); %linearize into row vec
+                features_neg(featIndex,:) = feature; % append row vec
+                featIndex = featIndex + 1;
+            end
+            img = imresize(img, scaleFactor);
+            [imHeight, imWidth] = size(img);
+            currScale = currScale * scaleFactor;
+        end
+</code></pre>
+
+<h3>Hard Negative Mining</h3>
+<p>
+	Although Hard Negative Mining increased my accuracy slightly, it was computationally very expensive to run on the large dataset of negative examples. Nevertheless, this would be something that I would cache in future interations of the detector, as the consistent increase in runtime accuracy is worth the longer initial training duration.
+</p>
+<pre><code>
+[hnBBoxes, hnConf, hnImageIds] = run_detector(non_face_scn_path, w, b, feature_params);
+for i=1:length(hnImageIds)
+    bbox = hnBBoxes(i) % TLCol TLRow BRCol BRRow
+    imgName = hnImageIds(i)
+    imgLoc = fullfile( non_face_scn_path, hnImageIds(i))
+    img = imread(imgLoc);
+    img = single(img)/255;
+    if(size(img,3) > 1)
+        img = rgb2gray(img);
+    end
+    imshow(img(bbox(2):bbox(4), bbox(1):bbox(3)));
+    pause();
+end
+</code></pre>
+
+<h3>Results in a table</h3>
+
+<table border=1>
+<tr>
+<td>
+<img src="placeholder.jpg" width="24%"/>
+<img src="placeholder.jpg"  width="24%"/>
+<img src="placeholder.jpg" width="24%"/>
+<img src="placeholder.jpg" width="24%"/>
+</td>
+</tr>
+
+<tr>
+<td>
+<img src="placeholder.jpg" width="24%"/>
+<img src="placeholder.jpg"  width="24%"/>
+<img src="placeholder.jpg" width="24%"/>
+<img src="placeholder.jpg" width="24%"/>
+</td>
+</tr>
+
+</table>
+
+<center>
+<p>
+Face template HoG visualization for the starter code. This is completely random, but it should actually look like a face once you train a reasonable classifier.
+<p>
+<img src="hog_template.png">
+<p>
+Precision Recall curve for the starter code.
+<p>
+<img src="average_precision.png">
+<p>
+Example of detection on the test set from the starter code.
+<img src="detections_Argentina.jpg.png">
+
+</center>
+
+<div style="clear:both" >
+<p> 	Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+</div>
+</body>
+</html>
