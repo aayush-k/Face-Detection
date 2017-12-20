@@ -58,5 +58,5 @@ function features_pos = get_positive_features(train_path_pos, feature_params)
         hog = vl_hog(img, feature_params.hog_cell_size);
         features_pos(counter,:) = reshape(hog, D, 1, 1);
     end
-    % fprintf('done getting pos feats\n');
+    fprintf('done getting pos feats\n');
 end

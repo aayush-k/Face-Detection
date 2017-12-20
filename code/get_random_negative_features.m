@@ -37,12 +37,12 @@ function features_neg = get_random_negative_features(non_face_scn_path, feature_
     tempSize = feature_params.template_size;
     D = (tempSize / cellSize)^2 * 31;
 
-    standardSampleSize = ceil(num_samples / num_images / 2);
+    standardSampleSize = ceil(num_samples / num_images);
     features_neg = zeros(num_images, D); %number of samples?
     featIndex = 1;
 
-
-    scaleFactor = 0.7; %0.7 reccomended by Dr.Hays for tradeoff between accuracy and performance
+    % 0.7 reccomended by Dr.Hays for tradeoff between accuracy and performance
+    scaleFactor = 0.7;
 
     for i = 1:num_images
         if mod(i, 20) == 0
@@ -55,29 +55,37 @@ function features_neg = get_random_negative_features(non_face_scn_path, feature_
         [imHeight, imWidth] = size(img);
         % For best performance, you should sample random negative examples at multiple scales.
 
+        % how many nonoverlapping templates can fit in the current image
         uniqueFeatures = floor(imHeight / tempSize) * floor(imWidth / tempSize);
-        featuresSampled = min([standardSampleSize, uniqueFeatures]);
-        % currScale = 1;
+        featuresSampled = min([round(standardSampleSize / 2), uniqueFeatures]);
 
-        while (imHeight >= tempSize && imWidth >= tempSize && featuresSampled > 0)
+        % while currently scaled image can contain at least one nonoverlapping image
+        while (imHeight >= tempSize && imWidth >= tempSize)
 
             for fS = 1 : featuresSampled
                 % top left coordinates of feature
                 r = ceil(rand * (imHeight - tempSize) + 1);
                 c = ceil(rand * (imWidth - tempSize) + 1);
                 imWindow = img(r : r + tempSize - 1, c : c + tempSize - 1);
-                feature = reshape(vl_hog(imWindow, cellSize), 1, []); %linearize into row vec
+                %linearize into row vec
+                feature = reshape(vl_hog(imWindow, cellSize), 1, []);
                 features_neg(featIndex,:) = feature; % append row vec
                 featIndex = featIndex + 1;
             end
             img = imresize(img, scaleFactor);
             [imHeight, imWidth] = size(img);
+            % num nonoverlapping templates that fit in the resized image
             uniqueFeatures = floor(imHeight / tempSize) * floor(imWidth / tempSize);
-            featuresSampled = min([featuresSampled * scaleFactor * scaleFactor, uniqueFeatures]);
-            % currScale = currScale * scaleFactor;
+            featuresSampled = min([featuresSampled * scaleFactor .^ 2, uniqueFeatures]);
+            % if there are no features left to sample because image is scaled too small, then break
+            if featuresSampled <= 0
+                break
+            end
         end
 
     end
+    % filter down to only required number of samples
+    % TODO: implement more even distribution of sampling across ranges of image zoom scales
     if (featIndex - 1 > num_samples)
         features_neg = datasample(features_neg, num_samples, 'Replace', false);
     end

@@ -148,12 +148,22 @@ table td img {
 	In order to detect faces at multiple scales of an image, we have adapted our sliding windows to operate on multiple scales of the image.
 
 </p>
+<h3>Extra Credit</h3>
+
+<ul>
+	<li> Implemented Hard Negative Mining (commented out in final submission for time constraints) </li>
+	<li> Augmented positive training data with horizontal reflections of frontal faces </li>
+</ul>
 
 <div style="clear:both">
-<h3>Get Positive Features</h3>
+<h3>Getting Positive And Features</h3>
 
 <p>
 	For getting positive features, I decided to very simply read in images and accumulate a positive dataset of hog descriptions of each of the pre-cropped images.
+	One interesting suggestion that I leveraged was that according to ____, where flipping positive training images of pages leverages the
+	symmetric aspect of faces and therefore augment our training data to a certain extent. By doing so, my training accuracy increased from __ to ___.
+</p>
+<p>
 	However, processing the negative images proved to be more interesting, as I sampled descriptions at varying scales of the provided images.
 	I used a scaling factor of 0.7 as per the suggestion of Professor Hays. After applying the appropriate labels to my dataset,
 	I trained my linear SVM with a lambda of 0.0001. After running my detector several times, I was consistently returning more false positives than I would have liked-
@@ -161,7 +171,6 @@ table td img {
 </p>
 
 <h2>Random window approach for Negative Features</h2>
-The javascript in the <code>highlighting</code> folder is configured to do syntax highlighting in code blocks such as the one below.<p>
 
 <pre><code>
 %My Random Window approach for scanning through neg features
@@ -180,67 +189,56 @@ The javascript in the <code>highlighting</code> folder is configured to do synta
             currScale = currScale * scaleFactor;
         end
 </code></pre>
-
-<h3>Hard Negative Mining</h3>
+<p>Down the road, I believe it would be worth investigating the benefits of fine tuning the final sampling of negative features such that we get a relatively even amount of samples from each range of magnification.
+	For instance, for magnification from 1x to 2x we could take num_sample/2 features, from 2x to 3x we could take num_sample/4, from 3x to 4x we could take num_sample/8, etc... This way
+ we avoid the case where we have a disproportionate number of samples from a single scale range. </p>
+<h2>Hard Negative Mining</h2>
 <p>
-	Although Hard Negative Mining increased my accuracy slightly, it was computationally very expensive to run on the large dataset of negative examples. Nevertheless, this would be something that I would cache in future interations of the detector, as the consistent increase in runtime accuracy is worth the longer initial training duration.
+	As I attempted to Hard Mine Negatives, I realized that the professor's comment about how hardmining negatives doesn't necessarily help with frontal facial detection and linear classifiers.
+	After experimenting with non linear classifiers and realizing how computationally inefficient that route would be, I decided to slightly minimize the effect of these hardmined negatives.
+	I did so by only taking into account the negatives that my classifier was quite confident about (more confident than average confidence of false positives).
+	Also notably, this was relatively computationally very expensive to run on the large dataset of negative examples as well as to lower my detection threshold to properly leverage the benefits of the technique.
+	Nevertheless, this would be something that I would cache in future interations of the detector, as the consistent increase in runtime accuracy is worth the longer initial training duration.
 </p>
 <pre><code>
-[hnBBoxes, hnConf, hnImageIds] = run_detector(non_face_scn_path, w, b, feature_params);
-for i=1:length(hnImageIds)
-    bbox = hnBBoxes(i) % TLCol TLRow BRCol BRRow
-    imgName = hnImageIds(i)
-    imgLoc = fullfile( non_face_scn_path, hnImageIds(i))
-    img = imread(imgLoc);
-    img = single(img)/255;
-    if(size(img,3) > 1)
-        img = rgb2gray(img);
-    end
-    imshow(img(bbox(2):bbox(4), bbox(1):bbox(3)));
-    pause();
-end
+	[~, hnConfs, ~, hnFeatures] = run_detector(non_face_scn_path, w, b, feature_params);
+	hnFeatures = hnFeatures(find(hnConfs > mean(hnConfs)), :);
+	trainingLabels = [trainingLabels; (ones(size(hnFeatures, 1), 1) .* -1)];
+	trainingData = [trainingData; hnFeatures];
+	[w b] = vl_svmtrain(trainingData', trainingLabels, lamda);
 </code></pre>
 
+
+
 <h3>Results in a table</h3>
+I found that incorporating the mining false positives yielded worse results unless I allowed my program to run past the alotted time limit. Therefore I chose to comment it out, but have still shown the implementation above
+With my cell size set to 4, threshold at 1.1, and negative feature selection scaling at 0.6, I was able to achieve an accuracy of 84.2.
+2000 gave 0.816 AP. After bumping up the number of negative samples to 25000, I achieved a 0.845 AP.
+
+<center>
+	<img src="./classDetects.jpg" width="75%" />
 
 <table border=1>
 <tr>
-<td>
-<img src="placeholder.jpg" width="24%"/>
-<img src="placeholder.jpg"  width="24%"/>
-<img src="placeholder.jpg" width="24%"/>
-<img src="placeholder.jpg" width="24%"/>
-</td>
-</tr>
-
-<tr>
-<td>
-<img src="placeholder.jpg" width="24%"/>
-<img src="placeholder.jpg"  width="24%"/>
-<img src="placeholder.jpg" width="24%"/>
-<img src="placeholder.jpg" width="24%"/>
-</td>
+	<td>
+		<img src="./AP845.jpg" width="24%" />
+		<img src="./GR845.jpg" width="24%" />
+		<img src="./HOG845.jpg" width="24%" />
+		<img src="./PLOT845.jpg" width="24%" />
+	</td>
+</tr><tr>
+	<td>
+		<img src="./AP816.jpg" width="24%" />
+		<img src="./GR816.jpg" width="24%" />
+		<img src="./HOG816.jpg" width="24%" />
+		<img src="./PLOT816.jpg" width="24%" />
+	</td>
 </tr>
 
 </table>
-
-<center>
-<p>
-Face template HoG visualization for the starter code. This is completely random, but it should actually look like a face once you train a reasonable classifier.
-<p>
-<img src="hog_template.png">
-<p>
-Precision Recall curve for the starter code.
-<p>
-<img src="average_precision.png">
-<p>
-Example of detection on the test set from the starter code.
-<img src="detections_Argentina.jpg.png">
-
 </center>
 
 <div style="clear:both" >
-<p> 	Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
 </div>
 </body>
 </html>

@@ -80,10 +80,10 @@ function [bboxes, confidences, image_ids, detectedFeats] = ....
         end
 
         iter = 0;
-        while (size(img, 1) > tempSize && size(img, 2) > tempSize)
-            if strcmp(test_scenes(i).name, '251966.jpg')
-                fprintf('\titeration # %d at zoom %d\n', iter, sceneZoom);
-            end
+        while (size(img, 1) > tempSize || size(img, 2) > tempSize)
+            % if strcmp(test_scenes(i).name, '251966.jpg')
+            %     fprintf('\titeration # %d at zoom %d\n', iter, sceneZoom);
+            % end
             % get current image's hog
             imHog = vl_hog(img, cellSize);
 
@@ -94,11 +94,15 @@ function [bboxes, confidences, image_ids, detectedFeats] = ....
                     currHogWindow = reshape(imHog(r : (r + tempsPerCell - 1), c : (c + tempsPerCell - 1), :), 1, D, 1);
                     conf = currHogWindow * w + b;
 
+                        % successfully confident detection results in adding it to our output
                     if (conf >= threshold)
-                        % successfully confident detection results in adding to our running detections
+                        % APPLY ANY ADDITIONAL CASCADE CLASSIFIERS HERE
+                        % get top left and bottom Right pixel in the current scaled dimensions
                         topLeft = ([c r] - 1) .* cellSize;
                         bottomRight = topLeft + tempSize;
+                         % gets original pixel coordinates
                         hogWindow = round([topLeft bottomRight] .* sceneZoom);
+                        % add detection to output
                         sceneBBoxes = [sceneBBoxes; hogWindow];
                         sceneConfs = [sceneConfs; conf];
                         sceneImageIds = [sceneImageIds; test_scenes(i).name];
@@ -106,7 +110,7 @@ function [bboxes, confidences, image_ids, detectedFeats] = ....
                     end
                 end
             end
-
+            % scale image again to run detection window on next gaussian pyramid
             img = imresize(img, scaleFactor);
             sceneZoom = sceneZoom / scaleFactor;
             iter = iter + 1;

@@ -45,14 +45,14 @@ data_path = '../data/';
 train_path_pos = fullfile(data_path, 'caltech_faces/Caltech_CropFaces'); %Positive training examples. 36x36 head crops
 non_face_scn_path = fullfile(data_path, 'train_non_face_scenes'); %We can mine random or hard negatives from here
 test_scn_path = fullfile(data_path,'test_scenes/test_jpg'); %CMU+MIT test scenes
-% test_scn_path = fullfile(data_path,'extra_test_scenes'); %Bonus scenes
+% test_scn_path = fullfile(data_path,'class'); %Bonus scenes
 label_path = fullfile(data_path,'test_scenes/ground_truth_bboxes.txt'); %the ground truth face locations in the test set
 
 %The faces are 36x36 pixels, which works fine as a template size. You could
 %add other fields to this struct if you want to modify HoG default
 %parameters such as the number of orientations, but that does not help
 %performance in our limited test.
-feature_params = struct('template_size', 36, 'hog_cell_size', 4);
+feature_params = struct('template_size', 36, 'hog_cell_size', 3);
 
 
 %% Step 1. Load positive training crops and random negative examples
@@ -60,7 +60,7 @@ feature_params = struct('template_size', 36, 'hog_cell_size', 4);
 
 features_pos = get_positive_features( train_path_pos, feature_params );
 
-num_negative_examples = 15000; %Higher will work strictly better, but you should start with 10000 for debugging
+num_negative_examples = 10000; %Higher will work strictly better, but you should start with 10000 for debugging
 features_neg = get_random_negative_features( non_face_scn_path, feature_params, num_negative_examples);
 
 
@@ -127,8 +127,9 @@ imwrite(hog_template_image, 'visualizations/hog_template.png')
 % more expressive, non-linear classifier that can benefit from more
 
 % trianing data.
-% [~, ~, ~, hnFeatures] = run_detector(non_face_scn_path, w, b, feature_params);
-% trainingLabels = [trainingLabels; ones(size(hnFeatures, 1), 1) .* -1];
+% [~, hnConfs, ~, hnFeatures] = run_detector(non_face_scn_path, w, b, feature_params);
+% hnFeatures = hnFeatures(find(hnConfs > mean(hnConfs)), :);
+% trainingLabels = [trainingLabels; (ones(size(hnFeatures, 1), 1) .* -1)];
 % trainingData = [trainingData; hnFeatures];
 % [w b] = vl_svmtrain(trainingData', trainingLabels, lamda);
 
@@ -156,8 +157,8 @@ imwrite(hog_template_image, 'visualizations/hog_template.png')
 [gt_ids, gt_bboxes, gt_isclaimed, tp, fp, duplicate_detections] = ...
     evaluate_detections(bboxes, confidences, image_ids, label_path);
 
-visualize_detections_by_image(bboxes, confidences, image_ids, tp, fp, test_scn_path, label_path)
-% visualize_detections_by_image_no_gt(bboxes, confidences, image_ids, test_scn_path)
+% visualize_detections_by_image(bboxes, confidences, image_ids, tp, fp, test_scn_path, label_path)
+visualize_detections_by_image_no_gt(bboxes, confidences, image_ids, test_scn_path)
 
 % visualize_detections_by_confidence(bboxes, confidences, image_ids, test_scn_path, label_path);
 
